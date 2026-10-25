@@ -2,6 +2,7 @@ package cc.sighs.rewind.client;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Supplier;
 import cc.sighs.rewind.api.RewindApi;
 import cc.sighs.rewind.api.RewindResult;
 import cc.sighs.rewind.server.RewindServerConfig;
@@ -20,11 +21,11 @@ import net.minecraft.server.MinecraftServer;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
- * {@code /rewind} 命令：模组的主要功能都有一条命令（没有热键的场景、想写进 .mcfunction 的场合）。
+ * {@code /rewind} 命令：模组主要功能的命令入口（单人与多人都是同一条命令）。
  *
  * <pre>
  * /rewind status                列出所有槽位、时间线的头与上一次操作
- * /rewind ui                    打开时间树（= 按 F9）
+ * /rewind ui                    打开时间树（= 按 F9；多人模式下禁用）
  * /rewind snapshot [&lt;槽位&gt;]      建立 / 覆盖存档点（= 按 F7；不给槽位就是 quick）
  * /rewind restore [&lt;槽位&gt;]       回溯到存档点（= 按 F8；不给槽位就是 quick）
  * /rewind info &lt;槽位&gt;           看一个槽位的详情
@@ -33,16 +34,36 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * /rewind autosave on|off       跟着原版自动保存建点
  * </pre>
  *
+ * <p><b>两边都注册</b>：入口在 mod 构造期订阅 {@code RegisterCommandsEvent}，所以单人的集成服务器与
+ * 专用服务器上都有这条命令。**多人服务器上只有 OP 能用**（{@code requires} 里的 permission 2）：
+ * 多人模式禁用了时间树，回溯只能由 OP 用 {@code /rewind restore <槽位>} 来做。单人（且没开局域网）
+ * 里照旧所有人都能用。
+ *
+ * <p><b>本类不引用任何客户端类</b>：打开时间树、打印客户端状态机这两件事由客户端入口用
+ * {@link #installClientActions} 注入；专用服务器上它们是 null，{@code ui} 会回一句「只能在客户端用」。
+ *
  * <p>只做命令层的事——参数、权限、把结果念给玩家听；真正的活全部转给 {@link RewindApi} 与
- * {@link RewindServerConfig}。带过渡的那两个动作（{@code snapshot} / {@code restore}）走的就是
- * F7 / F8 那条路（{@link RewindApi#requestCheckpoint(String, String)} /
- * {@link RewindApi#requestRollback(String, String)}）；命令层自己先过一遍「能不能动手」的判定，
- * <b>只是为了能当场把原因说给玩家听</b>——热键那条路被挡下来时只写日志。判定本身在
- * {@code CheckpointController.ensureUsable} 与 {@code requestRestore} 里，两边必须保持一致
- * （忙 / 不在世界里 / 局域网已开放 / 没有存档点 / 读档冷却）；槽位管理（{@code info} /
- * {@code delete} / {@code rename}）与 {@code autosave} 是纯文件 / 配置操作。
+ * {@link RewindServerConfig}。带过渡的那两个动作（{@code snapshot} / {@code restore}）在有客户端时
+ * 走 F7 / F8 那条路（{@link RewindApi#requestCheckpoint(String, String)} /
+ * {@link RewindApi#requestRollback(String, String)}）；**专用服务器上没有客户端桥**，就退到服务端
+ * 线程上的同步入口（{@link RewindApi#createCheckpoint} / {@link RewindApi#rollbackInPlace}）——
+ * 命令本身就在服务端线程上执行，那几条的线程要求天然满足（代价是执行期间服务器会卡一下）。
  */
 public final class RewindCommands {
+    /** 客户端注入的动作：打开时间树。专用服务器上是 null。 */
+    private static volatile Runnable openTree;
+    /** 客户端注入的动作：返回 {@code status} 末尾那行客户端状态机状态。专用服务器上是 null。 */
+    private static volatile Supplier<String> clientStatus;
+
+    /**
+     * 由客户端入口在 setup 时安装。专用服务器不会调用它，于是 {@code ui} 与状态行自动缺席，
+     * 本类也就不需要（也不能）引用 {@code net.minecraft.client.*}。
+     */
+    public static void installClientActions(Runnable treeOpener, Supplier<String> statusLine) {
+        openTree = treeOpener;
+        clientStatus = statusLine;
+    }
+
     private RewindCommands() {
     }
 
@@ -50,12 +71,13 @@ public final class RewindCommands {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("rewind")
                 // 加载期（数据包函数解析时，Brigadier 的 canUse 预检）拿到的是 getServer() 为 null 的 source，
-                // 这里必须放行，否则任何引用 /rewind 的 .mcfunction 都会 NPE 加载失败
+                // 这里必须放行，否则任何引用 /rewind 的 .mcfunction 都会 NPE 加载失败。
+                // 多人（专用服务器 / 局域网已开放）只给 OP：那会儿回溯是 OP 的动作。
                 .requires(source -> source.getServer() == null
-                        || source.getServer().isSingleplayer()
+                        || (source.getServer().isSingleplayer() && !source.getServer().isPublished())
                         || source.hasPermission(2))
                 .then(Commands.literal("status").executes(context -> status(context.getSource())))
-                .then(Commands.literal("ui").executes(context -> ui()))
+                .then(Commands.literal("ui").executes(context -> ui(context.getSource())))
                 .then(Commands.literal("snapshot")
                         .executes(context -> snapshot(context.getSource(), RewindApi.DEFAULT_SLOT))
                         .then(slotArgument().executes(context -> snapshot(context.getSource(), slot(context)))))
@@ -90,9 +112,14 @@ public final class RewindCommands {
 
     // ------------------------------------------------------------------ 动作
 
-    private static int ui() {
-        // 时间树只在客户端里有；服务端这边只写一条日志（和热键一样）
-        RewindTreeScreen.open();
+    /** 时间树是纯客户端的东西：专用服务器上没有这个动作。 */
+    private static int ui(CommandSourceStack source) {
+        Runnable opener = openTree;
+        if (opener == null) {
+            source.sendFailure(Component.translatable("rewind.cmd.client_only"));
+            return 0;
+        }
+        opener.run();
         return 1;
     }
 
@@ -103,15 +130,22 @@ public final class RewindCommands {
             source.sendFailure(blocker);
             return 0;
         }
-        if (!RewindApi.requestCheckpoint(slot, "command")) {
-            source.sendFailure(noWorld());
+        if (RewindApi.requestCheckpoint(slot, "command")) {
+            source.sendSuccess(() -> Component.translatable("rewind.cmd.snapshot_started", slot), false);
+            return 1;
+        }
+        // 没有客户端（专用服务器）：同步做一次，命令本来就在服务端线程上
+        RewindResult result = RewindApi.createCheckpoint(source.getServer(), slot, "command");
+        if (!result.success) {
+            source.sendFailure(Component.translatable("rewind.cmd.snapshot_failed",
+                    String.valueOf(result.failure)));
             return 0;
         }
-        source.sendSuccess(() -> Component.translatable("rewind.cmd.snapshot_started", slot), false);
+        source.sendSuccess(() -> Component.translatable("rewind.cmd.snapshot_done", slot, result.summary), false);
         return 1;
     }
 
-    /** 回溯到存档点，等价于按 F8。 */
+    /** 回溯到存档点，等价于按 F8；多人服务器上这是 OP 唯一能用的回溯方式。 */
     private static int restore(CommandSourceStack source, String slot) {
         Component blocker = worldActionBlocker(source);
         if (blocker != null) {
@@ -127,11 +161,18 @@ public final class RewindCommands {
             source.sendFailure(Component.translatable("rewind.error.rollback_cooldown"));
             return 0;
         }
-        if (!RewindApi.requestRollback(slot, "command")) {
-            source.sendFailure(noWorld());
+        if (RewindApi.requestRollback(slot, "command")) {
+            source.sendSuccess(() -> Component.translatable("rewind.cmd.restore_started", slot), false);
+            return 1;
+        }
+        // 没有客户端（专用服务器）：原地回滚直接在服务端线程上跑
+        RewindResult result = RewindApi.rollbackInPlace(source.getServer(), slot, "command");
+        if (!result.success) {
+            source.sendFailure(Component.translatable("rewind.cmd.restore_failed",
+                    String.valueOf(result.failure)));
             return 0;
         }
-        source.sendSuccess(() -> Component.translatable("rewind.cmd.restore_started", slot), false);
+        source.sendSuccess(() -> Component.translatable("rewind.cmd.restore_done", slot, result.summary), false);
         return 1;
     }
 
@@ -218,20 +259,23 @@ public final class RewindCommands {
             return 0;
         }
         List<SnapshotMeta> metas = RewindApi.listCheckpoints(world);
-        String head = RewindApi.currentSlot(world);
-        source.sendSuccess(() -> Component.literal("head=" + head), false);
+        source.sendSuccess(() -> Component.literal("head=" + RewindApi.currentSlot(world)), false);
         if (metas.isEmpty()) {
             source.sendSuccess(() -> Component.translatable("rewind.cmd.status_empty"), false);
-            return 0;
+        } else {
+            for (SnapshotMeta meta : metas) {
+                source.sendSuccess(() -> Component.literal(meta.describe()), false);
+            }
         }
-        for (SnapshotMeta meta : metas) {
-            source.sendSuccess(() -> Component.literal(meta.describe()), false);
-        }
+        // 上一次结果在 common 里，客户端状态机那行由客户端入口注入（专用服务器上没有）
         RewindResult last = RewindApi.lastResult();
-        source.sendSuccess(() -> Component.literal("phase=" + CheckpointController.phase()
-                + " last=" + CheckpointController.lastOutcome()
-                + (last == null ? "" : " " + last.describe())
-                + " " + CheckpointController.lastMessage()), false);
+        Supplier<String> statusLine = clientStatus;
+        String extra = statusLine == null ? null : statusLine.get();
+        if (last != null || (extra != null && !extra.isEmpty())) {
+            String line = ((last == null ? "" : last.describe()) + " "
+                    + (extra == null ? "" : extra)).trim();
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
         return metas.size();
     }
 
@@ -245,7 +289,7 @@ public final class RewindCommands {
         return RewindApi.isBusy() ? Component.translatable("rewind.error.busy") : null;
     }
 
-    /** 建点 / 回溯还要额外满足：在世界里、且没开局域网（判定同 {@code CheckpointController}）。 */
+    /** 建点 / 回溯要额外满足：在世界里；单人时还要求没开局域网（专用服务器本来就是对多人开放的）。 */
     private static Component worldActionBlocker(CommandSourceStack source) {
         Component busy = busyBlocker();
         if (busy != null) {
@@ -255,7 +299,10 @@ public final class RewindCommands {
         if (server == null) {
             return noWorld();
         }
-        return server.isPublished() ? Component.translatable("rewind.error.lan_published") : null;
+        // 「局域网已开放」只对集成服务器有意义：专用服务器本来就对多人开放（isPublished() 恒为 true），
+        // 那正是这条命令要用的场合。
+        return server.isSingleplayer() && server.isPublished()
+                ? Component.translatable("rewind.error.lan_published") : null;
     }
 
     /** 「不在世界里」与「没有客户端桥」（专用服务器 / 还没 setup）共用一句：两种情况下都只能这么办。 */

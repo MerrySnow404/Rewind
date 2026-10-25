@@ -15,7 +15,6 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
  * 客户端侧的注册入口。只在物理客户端加载（由主类用 {@code FMLEnvironment.getDist()} 判定），
@@ -50,7 +49,9 @@ public final class RewindClient {
         CheckpointController.installApiBridge();
         modBus.addListener(RegisterKeyMappingsEvent.class, RewindClient::onRegisterKeyMappings);
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, RewindClient::onClientTick);
-        NeoForge.EVENT_BUS.addListener(RegisterCommandsEvent.class, RewindCommands::register);
+        // 命令的注册在 mod 入口（单人的集成服务器与专用服务器都要有）；这里只把两个客户端专属动作
+        // 交给命令层——命令类因此不引用任何客户端类，专用服务器上也能加载。
+        RewindCommands.installClientActions(RewindTreeScreen::open, CheckpointController::statusLine);
         // 存档点的封面：建点的人（服务端线程）留一条待办，这里在下一帧把画面抓下来
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class,
                 event -> CoverCapture.onFramePre(Minecraft.getInstance()));

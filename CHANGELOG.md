@@ -1,5 +1,22 @@
 # 更新日志
 
+## 1.0.4
+
+### 新增：多人模式禁用时间树，回溯交给 OP 命令
+
+- 多人模式（连远程服务器，或单人已开局域网）下时间树整体禁用：F9 / `/rewind ui` 不再开屏，而是往聊天框发一条提示——请让 OP 用 `/rewind status` 看槽位、`/rewind restore <槽位>` 回溯。单人（未开局域网）照旧。
+- `/rewind` 改成**两边都注册**：专用服务器上也有这条命令。多人服务器上**只有 OP** 能用（permission 2；非 OP 连 `<tab>` 补全里都看不到）。
+- 专用服务器上没有客户端桥，`snapshot` / `restore` 直接在服务端线程上同步执行（原地回滚）；有客户端时照旧走 F7 / F8 的过渡路。`ui` 在专用服务器上回「只能在客户端用」。
+- 命令类不再引用任何客户端类（时间树与客户端状态行由客户端入口注入），所以专用服务器能正常加载。
+
+### 修复
+
+- **原地回溯后经验值异常**：收尾原来用 `setExperienceLevels(...)` / `setExperiencePoints(...)` 把经验写回玩家，这两个 setter 会按参数反算等级与进度（互相覆盖），回滚后等级或经验条会和存档点对不上。现在直接给客户端发 `ClientboundSetExperiencePacket`（进度 / 总值 / 等级），不再经过那两个 setter。
+
+### 内部
+
+- 命令的「能不能动手」判定里，「局域网已开放」只对单人生效：专用服务器的 `isPublished()` 恒为 true，拿它挡会让命令在多人服上完全不可用（联机实测踩到，见 `AGENT.md`）。
+
 ## 1.0.3
 
 ### 新增：`/rewind` 命令覆盖全部主要功能
@@ -80,6 +97,14 @@
 ---
 
 ## English
+
+### 1.0.4
+
+- **The time tree is disabled in multiplayer, and rollbacks go through OP commands**: on a remote server (or a LAN-published singleplayer world) F9 / `/rewind ui` no longer opens the screen — it posts a chat hint telling players to ask an operator for `/rewind status` and `/rewind restore <slot>`. Private singleplayer is unchanged.
+- **`/rewind` is now registered on both sides**, including dedicated servers, and is **operator-only** in multiplayer (permission 2 — non-ops do not even see it in tab completion).
+- On a dedicated server there is no client bridge, so `snapshot` / `restore` run synchronously on the server thread (in-place rollback); with a client present they still take the F7 / F8 transition path. `ui` answers "only works on the client" there.
+- The command class no longer references any client class (the time tree and the client status line are injected by the client entry point), so it loads fine on a dedicated server.
+- **Fixed mangled experience after an in-place rollback**: the finish step used `setExperienceLevels(...)` / `setExperiencePoints(...)`, which recompute level and progress from the value passed (overwriting each other), so the level or bar could disagree with the checkpoint. It now sends `ClientboundSetExperiencePacket` (progress / total / level) directly.
 
 ### 1.0.3
 

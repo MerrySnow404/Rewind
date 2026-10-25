@@ -17,7 +17,8 @@ import net.minecraft.client.Minecraft;
  * <ul>
  *   <li>{@code RegisterKeyMappingsEvent} → {@code KeyBindingHelper.registerKeyBinding(...)}。</li>
  *   <li>{@code ClientTickEvent.Post} → {@link ClientTickEvents#END_CLIENT_TICK}。</li>
- *   <li>{@code RegisterCommandsEvent} → {@link CommandRegistrationCallback#EVENT}。</li>
+ *   <li>{@code RegisterCommandsEvent} 现在在 mod 主入口用 {@code CommandRegistrationCallback} 注册
+ *       （命令两边都要有，不只是客户端）。</li>
  *   <li>{@code RenderFrameEvent.Pre/Post} 与 {@code InputEvent.Key}、{@code ScreenEvent.Opening}
  *       Fabric 都没有对应事件，改由 {@code cc.sighs.mixin} 下的注入提供：
  *       见 {@link #onFramePre} / {@link #onFramePost} / {@link #onRawKey} 与 {@code RewindScreens}。</li>
@@ -53,8 +54,9 @@ public final class RewindClient {
         treeKey = KeyBindingHelper.registerKeyBinding(
                 new KeyMapping("key.rewind.tree", InputConstants.KEY_F9, CATEGORY));
         ClientTickEvents.END_CLIENT_TICK.register(RewindClient::onClientTick);
-        CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess, environment) -> RewindCommands.register(dispatcher));
+        // 命令的注册在 mod 主入口（单人的集成服务器与专用服务器都要有）；这里只把两个客户端专属动作
+        // 交给命令层——命令类因此不引用任何客户端类，专用服务器上也能加载。
+        RewindCommands.installClientActions(RewindTreeScreen::open, CheckpointController::statusLine);
         Rewind.LOGGER.info("Rewind: registered key mappings (F7=checkpoint, F8=restore, F9=time tree)");
     }
 

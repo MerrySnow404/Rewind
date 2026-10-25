@@ -7,6 +7,7 @@
 
   "rewind.msg.snapshot_done": "已建立存档点",
   "rewind.msg.restored": "已回溯到存档点",
+  "rewind.msg.tree_multiplayer": "多人模式下已禁用时间树。请让 OP 使用 /rewind 命令：/rewind status 查看槽位，/rewind restore <槽位> 回溯。",
 
   "rewind.error.busy": "上一个存档点操作还没有结束",
   "rewind.error.no_world": "只能在单人世界的游戏内使用",
@@ -36,6 +37,11 @@
   "rewind.cmd.inventory": "背包快照：%s / %s 格",
   "rewind.cmd.autosave_on": "已开启：跟着原版自动保存建点",
   "rewind.cmd.autosave_off": "已关闭：不再跟着原版自动保存建点",
+  "rewind.cmd.client_only": "这条只能在客户端里用",
+  "rewind.cmd.snapshot_done": "存档点「%s」已写入（%s）",
+  "rewind.cmd.snapshot_failed": "写入存档点失败：%s",
+  "rewind.cmd.restore_done": "已回溯到「%s」（%s）",
+  "rewind.cmd.restore_failed": "回溯失败：%s",
 
   "rewind.ui.title": "时间树",
   "rewind.ui.title.offline": "回溯「%s」",

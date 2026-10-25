@@ -9,7 +9,6 @@ import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -64,8 +63,9 @@ public final class RewindClient {
         modBus.addListener(RewindClient::onRegisterKeyMappings);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false,
                 TickEvent.ClientTickEvent.class, RewindClient::onClientTick);
-        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false,
-                RegisterCommandsEvent.class, RewindCommands::register);
+        // 命令的注册在 mod 入口（单人的集成服务器与专用服务器都要有）；这里只把两个客户端专属动作
+        // 交给命令层——命令类因此不引用任何客户端类，专用服务器上也能加载。
+        RewindCommands.installClientActions(RewindTreeScreen::open, CheckpointController::statusLine);
         // 存档点的封面：建点的人（服务端线程）留一条待办，这里在下一帧把画面抓下来。
         // 帧开始这一下要把当前界面与 HUD 临时摘掉，所以必须排在这一帧渲染之前——RenderTickEvent 的
         // START 正是 gameRenderer.render 之前那一点。

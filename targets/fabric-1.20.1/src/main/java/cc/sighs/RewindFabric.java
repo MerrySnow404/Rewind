@@ -1,9 +1,11 @@
 package cc.sighs;
 
+import cc.sighs.rewind.client.RewindCommands;
 import cc.sighs.rewind.common.spi.RewindPlatforms;
 import cc.sighs.rewind.server.FabricRewindPlatform;
 import cc.sighs.rewind.server.RewindServerConfig;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 /**
  * Fabric 1.20.1 的入口。
@@ -21,5 +23,8 @@ public final class RewindFabric implements ModInitializer {
         RewindPlatforms.install(new FabricRewindPlatform());
         // 服务端行为的配置两边都要有，所以放在主入口而不是客户端入口里
         RewindServerConfig.register();
+        // 命令两边都要注册（单人走集成服务器、多人走专用服务器；多人里只有 OP 能触发）
+        CommandRegistrationCallback.EVENT.register(
+                (dispatcher, registryAccess, environment) -> RewindCommands.register(dispatcher));
     }
 }

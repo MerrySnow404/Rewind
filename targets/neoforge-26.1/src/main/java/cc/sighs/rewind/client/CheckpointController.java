@@ -191,6 +191,19 @@ public final class CheckpointController {
         return RewindApi.lastResult();
     }
 
+    /**
+     * {@code /rewind status} 末尾那行：客户端状态机、上一次结果与最近的提示。
+     *
+     * <p>只在客户端有（由 {@code RewindClient} 注入命令层）；专用服务器上命令层拿不到它，
+     * 只打印 common 里的 {@link RewindApi#lastResult()}。
+     */
+    public static String statusLine() {
+        RewindResult last = RewindApi.lastResult();
+        return "phase=" + phase + " last=" + lastOutcome
+                + (last == null ? "" : " " + last.describe())
+                + " " + lastMessage;
+    }
+
     /** 最近一次回溯真正回拷的文件数（-1 表示还没回溯过）。 */
     public static int lastRestoreCopiedFiles() {
         return lastRestoreCopied;

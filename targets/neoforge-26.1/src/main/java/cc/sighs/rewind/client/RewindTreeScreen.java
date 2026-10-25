@@ -222,8 +222,16 @@ public final class RewindTreeScreen extends ApricityScreen {
             minecraft.setScreen(back);
             return;
         }
-        if (!minecraft.hasSingleplayerServer() || minecraft.level == null || minecraft.player == null) {
-            Rewind.LOGGER.warn("Rewind: the tree screen is only available in-game in a singleplayer world");
+        if (minecraft.level == null || minecraft.player == null) {
+            Rewind.LOGGER.warn("Rewind: the tree screen is only available in-game");
+            return;
+        }
+        if (!minecraft.hasSingleplayerServer() || minecraft.getSingleplayerServer().isPublished()) {
+            // 多人模式（远程服务器 / 局域网已开放）：时间树禁用，只把可用的命令提示给玩家。
+            // 回溯请让 OP 用 /rewind restore <槽位>——命令在多人服务器上只有 OP 能用。
+            // 26.1 的 ChatComponent 把 addMessage 换成了 addClientSystemMessage。
+            minecraft.gui.getChat().addClientSystemMessage(Component.translatable("rewind.msg.tree_multiplayer"));
+            Rewind.LOGGER.warn("Rewind: the tree screen is disabled in multiplayer");
             return;
         }
         offlineWorldRoot = null;

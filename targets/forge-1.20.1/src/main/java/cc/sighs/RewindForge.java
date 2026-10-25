@@ -1,10 +1,14 @@
 package cc.sighs;
 
 import cc.sighs.rewind.client.RewindClient;
+import cc.sighs.rewind.client.RewindCommands;
 import cc.sighs.rewind.common.spi.RewindPlatforms;
 import cc.sighs.rewind.server.ForgeRewindPlatform;
 import cc.sighs.rewind.server.RewindServerConfig;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -43,6 +47,9 @@ public final class RewindForge {
         RewindPlatforms.install(new ForgeRewindPlatform());
         // 服务端行为的配置两边都要有（COMMON）
         RewindServerConfig.register(modBus);
+        // 命令两边都要注册（单人走集成服务器、多人走专用服务器；多人里只有 OP 能触发）
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false,
+                RegisterCommandsEvent.class, RewindCommands::register);
         // 客户端专属注册放在这里做 dist 判定：专用服务器上 RewindClient 不会被加载。
         if (FMLEnvironment.dist == Dist.CLIENT) {
             RewindClient.setup(modBus);

@@ -7,6 +7,7 @@
 
   "rewind.msg.snapshot_done": "Checkpoint written",
   "rewind.msg.restored": "Rewound to checkpoint",
+  "rewind.msg.tree_multiplayer": "The time tree is disabled in multiplayer. Ask an operator to use /rewind: /rewind status lists the slots, /rewind restore <slot> rolls back.",
 
   "rewind.error.busy": "Another checkpoint operation is still running",
   "rewind.error.no_world": "Only available in-game in a singleplayer world",
@@ -36,6 +37,11 @@
   "rewind.cmd.inventory": "Inventory snapshot: %s / %s slots",
   "rewind.cmd.autosave_on": "On: checkpoints follow the vanilla autosave",
   "rewind.cmd.autosave_off": "Off: no more checkpoints on autosave",
+  "rewind.cmd.client_only": "This subcommand only works on the client",
+  "rewind.cmd.snapshot_done": "Checkpoint \"%s\" written (%s)",
+  "rewind.cmd.snapshot_failed": "Writing the checkpoint failed: %s",
+  "rewind.cmd.restore_done": "Rolled back to \"%s\" (%s)",
+  "rewind.cmd.restore_failed": "Rollback failed: %s",
 
   "rewind.ui.title": "Time tree",
   "rewind.ui.title.offline": "Rewind \"%s\"",
