@@ -57,7 +57,7 @@ common 需要平台能力时只经 `cc.sighs.rewind.common.spi.RewindPlatform`�
 
 共享资源与 target 资源若有同路径文件，必须明确选择唯一归属；不要依赖覆盖顺序。加载器 metadata、Mixin 配置、access widener/access transformer 和版本专属语言文件一律归 target。
 
-配置项注释一律**两行：第一行中文、第二行英文**，一句话说清即可，不要展开解释（加载器自己追加的 `# Default:` / `# Range:` 不算）。四个 target 的措辞保持一致；Fabric 那份手写 properties 的注释集中在 `HEADER_LINES`，同样按「一中文一英文」成对写。
+配置项注释一律**两行：第一行中文、第二行英文**，一句话说清即可，不要展开解释（加载器自己追加的 `# Default:` / `# Range:` 不算）。六个 target 的措辞保持一致；两个 Fabric target 手写 properties 的注释集中在 `HEADER_LINES`，同样按「一中文一英文」成对写。
 
 ## 日常开发
 
@@ -80,14 +80,16 @@ cd targets\forge-1.20.1
 | --- | --- |
 | `forge-1.20.1` | JDK 21 |
 | `fabric-1.20.1` | JDK 21 |
+| `fabric-1.21.1` | JDK 21 |
 | `neoforge-1.21.1` | JDK 21 |
+| `fabric-26.1` | JDK 25 |
 | `neoforge-26.1` | JDK 25 |
 
-根项目的 `-PallTargets=true build` 只覆盖前三个 JDK 21 target，不能替代 NeoForge 26.1 的独立构建。
+根项目的 `-PallTargets=true build` 只覆盖前四个 JDK 21 target，不能替代 26.1 两个 target 的独立构建。
 
 ### target 支持状态
 
-四个 target 现在都有完整实现：共享逻辑在 common，各 target 提供平台实现（`RewindPlatform`）、Mixin 与客户端。
+六个 target 现在都有完整实现：共享逻辑在 common，各 target 提供平台实现（`RewindPlatform`）、Mixin 与客户端。
 
 | Target | MC / 加载器 | 客户端 AUI | 原地回滚 | 客户端钩子（NeoForge 事件的替代物） |
 | --- | --- | --- | --- | --- |
@@ -95,14 +97,17 @@ cd targets\forge-1.20.1
 | `neoforge-26.1` | 26.1 / NeoForge | 1.2.7 | 有 | NeoForge 原生事件；`GuiGraphicsExtractor` / `Identifier` / `SavedDataStorage` 等 26.1 改名已消化 |
 | `forge-1.20.1` | 1.20.1 / Forge | 1.2.7 | 有 | `TickEvent.RenderTickEvent` 代替帧 Pre/Post；`MinecraftForge.EVENT_BUS`；mixin 走 jar manifest 的 `MixinConfigs` |
 | `fabric-1.20.1` | 1.20.1 / Fabric | 1.2.7 | 有 | 自写客户端 mixin：帧 Pre/Post 挂 `Minecraft.runTick`、原始按键挂 `KeyboardHandler.keyPress`、拦加载屏挂 `Minecraft.setScreen`；其余走 Fabric API 事件 |
+| `fabric-1.21.1` | 1.21.1 / Fabric | 1.2.7 | 有 | 同 fabric-1.20.1（`runTick` 里的 `RenderTarget.bindWrite` / `unbindWrite`）；快速重启在 `Minecraft.doWorldLoad` 抓 `WorldStem`——原版没有 `getServerResources()`，`ReloadableResources` 记录还是包私有的 |
+| `fabric-26.1` | 26.1 / Fabric | 1.2.7 | 有 | 帧 Pre/Post 挂 `Minecraft.renderFrame` 里 `GameRenderer.render` 的前后（与 NeoForge `ClientHooks.fireRenderFramePre/Post` 同一对位置）、按键挂 `KeyboardHandler.keyPress`、开屏挂 `Minecraft.setScreen`；热键用 26.1 的 `KeyMapping.Category` + Fabric API 的 `KeyMappingHelper` |
 
 五条已知的跨 target 差异（改代码前先看）：
 
-- **配置文件**：NeoForge 两个 target 用 `ModConfigSpec`（`run/config/rewind-{common,client}.toml`）；Fabric 没有配置系统，`RewindServerConfig` / `RewindClientConfig` 是手写的 properties 实现（`config/rewind-{common,client}.properties`），**没有「外部改文件自动重载」**，只有界面上的 setter 会立刻落盘。
-- **自动保存间隔**：1.20.1 原版没有 `computeNextAutosaveInterval` / `ticksUntilAutosave`，两个 1.20.1 target 改用 `@ModifyConstant` 替换 `tickServer` 里写死的 `6000`（`require = 0` 软挂点，挂不上只是「间隔设置不生效」）。
-- **AUI 版本**：四个 target 统一 `1.2.7`（坐标分别是 `ApricityUI-{neoforge-1.21.1,neoforge-26.1,forge-1.20.1,fabric-1.20.1}`）。时间树用到的 DOM / 容器 API 在 1.2.4 → 1.2.7 之间保持同构（1.2.4 → 1.2.6 编译期已核），而 1.2.5.2 之前的「flat document 里画不出 `<img>`」的老问题在 1.2.7 上已不存在——四个 target 的时间树封面都应该能画出来（见「曾经的问题」一节）。**metadata 里也声明了这条依赖**（mod id `apricityui`，要求 `>= 1.2.7`）：NeoForge / Forge 各是一段 `[[dependencies.<mod_id>]]`（`side = "CLIENT"`，因为只有客户端的时间树用它），Fabric 写在 `fabric.mod.json` 的 `depends` 里（Fabric 没有分端的依赖声明）。
-- **原地回滚引擎按版本各一份**：四个 target 各有一份 `InPlaceRollback`，依赖的原版内部结构不同（1.20.1 没有 `SimpleRegionStorage` / `generationRefCount`，26.1 的 `ChunkMap` 改继承 `SimpleRegionStorage`、`DimensionDataStorage` 改名 `SavedDataStorage`、`SavedData.save` 消失）。三份新引擎与 1.21.1 那份**步骤顺序与保护条件一致**，差异逐条写在各自的类注释里。
-- **回滚时重建哪些内存状态（被强引用的存档数据）**：四份实现都是「作废没被强引用的条目 + 显式重建被强引用的那几个」，但**强引用清单按版本各不相同，改代码前必须对着该版本的反编译源码核**（`targets/<name>/build/moddev/artifacts/*sources.jar`）：`raids`（`ServerLevel.raids`）、`scoreboard`（`ServerScoreboard` 的脏标记回调）是所有版本都有的；`neoforge_data_attachments`（1.21.1 / 26.1 的等级数据附件，真数据在 `Level` 的附件表上）、`random_sequences`（`ServerLevel.randomSequences`，1.20.1 起就有）多数版本有；`forge-1.20.1` 多一个 Forge 的 `capabilities`（`LevelCapabilityData` + `ServerLevel.initCapabilities()`，fabric 没有对应物）；`neoforge-26.1` 把一大批东西改成了字段持有（`chunk_tickets`、`world_gen_settings`、`game_rules`、`world_clocks`、`scheduled_events`、`stopwatches`、`custom_boss_events`、`ender_dragon_fight`、`wandering_trader`），这些**只能保住落盘、内容不回滚**。另外 `command_storage_*`（按命名空间拼的那个）在 **1.20.1 / 1.21.1 不在**保护名单里：`CommandStorage.get` 走存储层，清掉缓存条目后会重新读盘重建 `Container`，内容跟着回滚、也继续正常落盘（`CommandStorage.get` 在 1.20.1 是 `storage.get(...)`）。但 **26.1 必须保护**：那边 `CommandStorage.get` 命中内存里 `namespaces` 那份 Container 就直接返回、不走存储层，清掉缓存既回滚不了内容，还会让那份 Container 掉出存储缓存、以后再也写不进文件。判定手法：`grep -rl "extends SavedData"` 找全部子类，再 `grep -rnE "=\s*[^;]*computeIfAbsent\("` 看赋值是进字段还是就地返回。
+- **配置文件**：NeoForge 两个 target 用 `ModConfigSpec`（`run/config/rewind-{common,client}.toml`）；Fabric 两个 target 没有配置系统，`RewindServerConfig` / `RewindClientConfig` 是手写的 properties 实现（`config/rewind-{common,client}.properties`），**没有「外部改文件自动重载」**，只有界面上的 setter 会立刻落盘。
+- **自动保存间隔**：1.20.1 原版没有 `computeNextAutosaveInterval` / `ticksUntilAutosave`，两个 1.20.1 target 改用 `@ModifyConstant` 替换 `tickServer` 里写死的 `6000`（`require = 0` 软挂点，挂不上只是「间隔设置不生效」）；1.21.1 / 26.1 的四个 target 走原版入口。
+- **AUI 版本**：六个 target 统一 `1.2.7`（坐标分别是 `ApricityUI-{neoforge-1.21.1,neoforge-26.1,forge-1.20.1,fabric-1.20.1,fabric-1.21.1,fabric-26.1}`）。时间树用到的 DOM / 容器 API 在 1.2.4 → 1.2.7 之间保持同构（1.2.4 → 1.2.6 编译期已核），而 1.2.5.2 之前的「flat document 里画不出 `<img>`」的老问题在 1.2.7 上已不存在——六个 target 的时间树封面都应该能画出来（见「曾经的问题」一节）。**metadata 里也声明了这条依赖**（mod id `apricityui`，要求 `>= 1.2.7`）：NeoForge / Forge 各是一段 `[[dependencies.<mod_id>]]`（`side = "CLIENT"`，因为只有客户端的时间树用它），Fabric 写在 `fabric.mod.json` 的 `depends` 里（Fabric 没有分端的依赖声明）。
+  > **fabric 的 SPI 绕过只在 1.20.1 需要**：AUI 1.2.7 的 fabric-1.20.1 构建里 `AnnotationScanUtil` 仍用 `ServiceLoader.findFirst()` 取只有 private 构造器的 `FabricAnnotationScanner`，所以 `targets/fabric-1.20.1` 保留 `AuiFabricAnnotationScanMixins`；fabric-1.21.1 / fabric-26.1 的 1.2.7 已经删掉 provider 与调用方，两个新 target 不再需要这个 mixin。
+- **原地回滚引擎按版本各一份**：六个 target 各有一份 `InPlaceRollback`，依赖的原版内部结构不同（1.20.1 没有 `SimpleRegionStorage` / `generationRefCount`，26.1 的 `ChunkMap` 改继承 `SimpleRegionStorage`、`DimensionDataStorage` 改名 `SavedDataStorage`、`SavedData.save` 消失）。各版本引擎与同 MC 版本的主实现**步骤顺序与保护条件一致**，差异逐条写在各自的类注释里；两个 Fabric target 只去掉 loader 侧的东西（等级数据附件、`IOUtilities` 等待 IO 池），其余逻辑与同版本 NeoForge 逐行一致。
+- **回滚时重建哪些内存状态（被强引用的存档数据）**：六份实现都是「作废没被强引用的条目 + 显式重建被强引用的那几个」，但**强引用清单按版本/加载器各不相同，改代码前必须对着该版本的反编译源码核**（`targets/<name>/build/moddev/artifacts/*sources.jar`，Fabric 那边看 loom 的 merged jar）：`raids`（`ServerLevel.raids`）、`scoreboard`（`ServerScoreboard` 的脏标记回调）是所有版本都有的；`neoforge:data_attachments`（1.21.1 / 26.1 的等级数据附件，真数据在 `Level` 的附件表上）只在两个 NeoForge target；`random_sequences`（`ServerLevel.randomSequences`，1.20.1 起就有）多数版本有；`forge-1.20.1` 多一个 Forge 的 `capabilities`（`LevelCapabilityData` + `ServerLevel.initCapabilities()`，Fabric 没有对应物）；`neoforge-26.1` 把一大批东西改成了字段持有（`chunk_tickets`、`world_gen_settings`、`game_rules`、`world_clocks`、`scheduled_events`、`stopwatches`、`custom_boss_events`、`ender_dragon_fight`、`wandering_trader`），这些**只能保住落盘、内容不回滚**（`fabric-26.1` 同版本，清单相同、去掉附件那一项）。另外 `command_storage_*`（按命名空间拼的那个）在 **1.20.1 / 1.21.1 不在**保护名单里：`CommandStorage.get` 走存储层，清掉缓存条目后会重新读盘重建 `Container`，内容跟着回滚、也继续正常落盘（`CommandStorage.get` 在 1.20.1 是 `storage.get(...)`）。但 **26.1 必须保护**：那边 `CommandStorage.get` 命中内存里 `namespaces` 那份 Container 就直接返回、不走存储层，清掉缓存既回滚不了内容，还会让那份 Container 掉出存储缓存、以后再也写不进文件（fabric-26.1 与 neoforge-26.1 同规则）。判定手法：`grep -rl "extends SavedData"` 找全部子类，再 `grep -rnE "=\s*[^;]*computeIfAbsent\("` 看赋值是进字段还是就地返回。
 
 ### 手动跑客户端 / 专用服务器
 
@@ -121,11 +126,14 @@ cd targets\neoforge-1.21.1
 这些坑都是真起过游戏之后才暴露的，改这些地方前先看：
 
 - **fabric 的 loom run 配置是 `programArgs`，不是 `programArgument`**（后者是 ModDevGradle 的 DSL）。写错不会让 `build` 失败，只会在 `runClient` / `runServer` 时直接 `BUILD FAILED in 1s`。
-- **AUI fabric 的 SPI provider 是坏的**：`FabricAnnotationScanner` 只有 private 无参构造器，AUI 却用 `ServiceLoader.findFirst()` 取它 → `NoSuchMethodException`，客户端与专用服务器都起不来。`targets/fabric-1.20.1` 用 `cc.sighs.mixin.AuiFabricAnnotationScanMixins` 把那处调用重定向成反射构造绕开；AUI 上游修好后可删。neoforge / forge 的同名 provider 都是 public，不受影响。
+- **AUI fabric 的 SPI provider 是坏的（只影响 1.20.1）**：`FabricAnnotationScanner` 只有 private 无参构造器，AUI 却用 `ServiceLoader.findFirst()` 取它 → `NoSuchMethodException`，客户端与专用服务器都起不来。`targets/fabric-1.20.1` 用 `cc.sighs.mixin.AuiFabricAnnotationScanMixins` 把那处调用重定向成反射构造绕开。fabric-1.21.1 / fabric-26.1 的 AUI 1.2.7 已经删掉 `FabricAnnotationScanner` 与 `AnnotationScanUtil` 的调用方，那两个 target 不需要这个 mixin（留着反而是死代码）。neoforge / forge 的同名 provider 都是 public，不受影响。
 - **forge 的 mod 依赖必须用 `modImplementation`**，不能是 `implementation`：1.20.1 Forge 的发行 jar 是 SRG、dev 是 named，`implementation` 不做 remap → 既有 `NoSuchMethodError: MenuScreens.m_96206_` 这类崩溃，也会让 `RewindTreeScreen` 里覆盖 `ApricityScreen` 的方法**一个都不生效**。
 - **forge 需要 `pack.mcmeta`**（`pack_format` = 15）：没有它 Forge 会弹 `LoadingErrorScreen`（`failed to load a valid ResourcePackInfo`）并跳过 `setInitialScreen`，quickPlay 永远进不了世界。
 - **1.20.1 的着色器名字**：`ShaderInstance(ResourceProvider, String, VertexFormat)` 把名字拼成 `shaders/core/<name>.json` 且固定去 `minecraft` 命名空间找，传 `rewind:rewind_transition` 会直接抛 `ResourceLocationException`。1.20.1 的 `RewindTransitionRenderer` 传裸名 + 一个重定向到 `rewind` 命名空间的 `ResourceProvider`，json 里的 `vertex` / `fragment` 也是裸名。
-- **level.dat 的时间键是 `Time`**（游戏刻）/ `DayTime`，不是 `GameTime`——后者只是 getter 名，磁盘上从来不存在这个键；`InPlaceRollback.restoreWorldData` 读错键就静默不还原世界时间（四个 target 现在都用 `Time`）。
+- **level.dat 的时间键是 `Time`**（游戏刻）/ `DayTime`，不是 `GameTime`——后者只是 getter 名，磁盘上从来不存在这个键；`InPlaceRollback.restoreWorldData` 读错键就静默不还原世界时间（六个 target 现在都用 `Time`）。
+- **Fabric 上快速重启的「可复用资源」只能从 `WorldStem` 抄**：`MinecraftServer#getServerResources()` 与公开的 `ReloadableServerResources` 记录都是 NeoForge 补丁；原版只有 private 的 `resources` 字段，而它的类型 `MinecraftServer$ReloadableResources` 是包私有 record。**不能用 `@Accessor("resources") Object` 绕**：Mixin 的 `@Accessor` 要求返回类型与字段类型完全一致，`build` 能过、启动时直接 `InvalidAccessorException: No candidates were found matching resources:Ljava/lang/Object;`（fabric-26.1 首次冒烟就是这么炸的）。正确做法与 fabric-1.20.1 / fabric-1.21.1 / fabric-26.1 一致：`ClientWorldLoadMixins` 在 `Minecraft.doWorldLoad` 的 HEAD 抓 `WorldStem`，取 `registries()` + `dataPackResources()`，`require = 0`，抓不到就退回原版开世界。
+- **26.1 Fabric 的帧钩子挂在 `Minecraft.renderFrame`，不是 `runTick`**：26.1 的 `runTick` 只做 tick / 声音，整帧绘制在 `renderFrame(boolean)` 里。帧开始 / 结束取 `GameRenderer.render(DeltaTracker, boolean)` 这条 invoke 的前后（与 NeoForge `ClientHooks.fireRenderFramePre/Post` 同一对位置，`blitToScreen` 之前），两条都 `require = 0`。1.21.1 则仍是 `runTick` 里的 `RenderTarget.bindWrite` / `unbindWrite`。
+- **26.1 的按键分类是对象**：`KeyMapping` 的构造器收 `KeyMapping.Category`（`Identifier` + 翻译键 `key.category.<ns>.<path>`），Fabric API 0.155.3 的注册入口是 `net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper`（1.20.1 的 `keybinding.v1.KeyBindingHelper` 已不存在）；原始按键的 `KeyboardHandler.keyPress` 也换成了 `(long window, int action, KeyEvent)`。
 - **26.1 的维度目录是 `dimensions/<ns>/<path>/`**（主世界 `dimensions/minecraft/overworld`），玩家数据在 `players/data/`；凡是用 `region/`、`playerdata` 拼路径的地方都要按 `LevelResource` / `DimensionType.getStorageFolder` 算，别写死（common 的 `SnapshotLayout.isExcluded` 因此同时认 `playerdata/` 与 `players/data/` 两个位置下的玩家临时文件）。
 - **26.1 的 `openWorld` 是异步的**（读 level.dat 走 `thenAcceptAsync`）：「关世界重开」的耗时必须在 `REVEALING` 阶段等到世界真的回来才停表，否则会算出几十毫秒的假数字。
 - **26.1 的 `ChunkMap.saveChunksEagerly` 先清 `unsaved` 再异步落盘**：回滚窗口开着的几毫秒里若这次异步写被丢掉，就会出现「内存不脏 + 磁盘没变」→ 回滚什么都不做还报成功。`InPlaceRollback.run` 把 `endDiscard()` 提到最前面，把窗口从毫秒级压到几纳秒。
@@ -138,7 +146,7 @@ cd targets\neoforge-1.21.1
 
 ### 存档 / 读档 API
 
-**下面这一组行为契约对四个 target 都成立**（描述取自 1.21.1 的实现；各 target 的加载器/版本差异见「target 支持状态」）。对外入口是 `cc.sighs.rewind.api.RewindApi`，结果类型是 `cc.sighs.rewind.api.RewindResult`。分层：
+**下面这一组行为契约对六个 target 都成立**（描述取自 1.21.1 的实现；各 target 的加载器/版本差异见「target 支持状态」）。对外入口是 `cc.sighs.rewind.api.RewindApi`，结果类型是 `cc.sighs.rewind.api.RewindResult`。分层：
 
 ```
 common/api        RewindApi / RewindResult        对外门面；不引用任何 net.minecraft.* 类
@@ -152,7 +160,7 @@ common/spi        RewindPlatform / FlushOutcome    平台能力接口（世界�
 common/snapshot   Snapshot*                       槽位文件格式、索引、镜像、块存储、背包快照
                   RegionHeader                    .mca 头部 8 KiB 的解析（四版本格式一致；快照侧走块存储拼）
 common/compat     SophisticatedCoreCompat         可选模组适配：回滚后清掉第三方自己缓存的解码结果（反射它的 clearCache()，类加载器问平台要；不在场就什么都不做）
-target/server     WorldFlush / NeoForgeRewindPlatform  强制落盘 + 玩家展示信息；SPI 的 NeoForge 1.21.1 实现
+target/server     WorldFlush / NeoForgeRewindPlatform / FabricRewindPlatform  强制落盘 + 玩家展示信息；SPI 的加载器实现
                   InPlaceRollback                 原地回滚引擎（吃原版内部结构，按版本各写一份）
                   RewindServerConfig / RewindVersion  配置落盘与 mod 版本号（值存 common）
 event             RollbackStartEvent              回溯开始（可取消）/ 结束（不可取消）的加载器事件：Forge / NeoForge 各一份
@@ -163,9 +171,9 @@ client            CheckpointController            客户端策略：过渡、界
                   RewindClient / RewindCommands   热键与命令。命令在 mod 入口注册（两边都有，多人里 OP 限定），本类只注入两个客户端专属动作
 ```
 
-`server` 之外的共享部分都在 common；target 侧只留「平台怎么接」和「原版内部长什么样」。`RewindPlatform` 的参数是各平台自己的服务器对象（不透明的 `Object`），target 在模组构造阶段 `RewindPlatforms.install(new NeoForgeRewindPlatform())` 装好，`RewindApi` 才拿得到世界根、线程判定与落盘/回滚能力。
+`server` 之外的共享部分都在 common；target 侧只留「平台怎么接」和「原版内部长什么样」。`RewindPlatform` 的参数是各平台自己的服务器对象（不透明的 `Object`），target 在模组构造阶段 `RewindPlatforms.install(new <Loader>RewindPlatform())` 装好，`RewindApi` 才拿得到世界根、线程判定与落盘/回滚能力。
 
-**迁移边界看的是「是不是 MC-无关」，不是「有没有版本差异」**：`InPlaceRollback` 里那几段（`.mca` 头部解析、存档数据回滚骨架、文件→id 分类与日志、保护/白名单判定）不碰 `net.minecraft.*`，四个 target 逐字节相同，所以都在 common（`RegionHeader` / `SavedDataRollback`）；而卸载 / 重载 / 玩家 / 世界时间那几百行**即使四个 target 逐字节相同也搬不动**——它们调用的原版内部结构要经各 target 自己的 mixin 访问器（`ChunkMapAccess` / `IOWorkerAccess` / …）和 `net.minecraft.*` 类型，common 引用不了。判据手法：`grep -rl` 比方法体 + 看签名/方法体里有没有 MC 类型或 `cc.sighs.mixin.*`。唯一剩下的一处 MC-无关重复是每个文件里那句一行的 `millisSince`（16 个调用点 × 4 份），迁移收益低于改动风险，暂时留着。
+**迁移边界看的是「是不是 MC-无关」，不是「有没有版本差异」**：`InPlaceRollback` 里那几段（`.mca` 头部解析、存档数据回滚骨架、文件→id 分类与日志、保护/白名单判定）不碰 `net.minecraft.*`，六个 target 逐字节相同，所以都在 common（`RegionHeader` / `SavedDataRollback`）；而卸载 / 重载 / 玩家 / 世界时间那几百行**即使六个 target 逐字节相同也搬不动**——它们调用的原版内部结构要经各 target 自己的 mixin 访问器（`ChunkMapAccess` / `IOWorkerAccess` / …）和 `net.minecraft.*` 类型，common 引用不了。判据手法：`grep -rl` 比方法体 + 看签名/方法体里有没有 MC 类型或 `cc.sighs.mixin.*`。唯一剩下的一处 MC-无关重复是每个文件里那句一行的 `millisSince`（16 个调用点 × 6 份），迁移收益低于改动风险，暂时留着。
 
 - **同步入口**（直接干活，不带过渡、不碰界面）：`createCheckpoint(server, slot, source)` 与 `rollbackInPlace(server, slot[, source])` **必须在服务端线程上调用**（进去会 `isSameThread()` 校验并报错）。没有界面就没法靠「暂停世界」保证拷贝期间没人写盘，让服务端线程忙在落盘和拷贝上等价于把它冻结——这也是要求服务端线程的原因。`restoreFiles(worldRoot, slot[, source])` 是纯文件操作，任意线程可调。
 - **回溯的开始 / 结束事件（Forge / NeoForge）**：两个回溯入口在动手前后各经 `RewindPlatform.beforeRollback` / `afterRollback` 通知一次，target 把它变成加载器事件——`cc.sighs.rewind.event.RollbackStartEvent`（**可取消**：`setCanceled(true)`，可选 `setCancelReason(...)`，在 `NeoForge.EVENT_BUS` / `MinecraftForge.EVENT_BUS` 上发布）与 `RollbackEndEvent`（**不可取消**：类型上没有取消入口——NeoForge 那份不实现 `ICancellableEvent`，Forge 那份不加 `@Cancelable`，成功失败都发）。载荷是 `cc.sighs.rewind.api.RollbackRequest`（槽位 / 来源 / `inPlace` / 目标存档点的元数据）与 `RewindResult`。
@@ -184,7 +192,7 @@ client            CheckpointController            客户端策略：过渡、界
 - **跨视距 / LOD 模组的运行时数据干脆不进快照**：`SnapshotLayout.MOD_RUNTIME_DIRS` 里的首层目录名（现在只有 Voxy 的 `voxy/`）两个方向都不碰——它是按存档的 LOD 键值库（默认 RocksDB，即 `<世界>/voxy/storage/LOCK`），内容不是存档状态、能从区块重建，而它大、活着拷下来也不自洽、回溯盖回去也没意义。有了上面那条通用规则它本来也不会再让建点失败（只是会白拷一遍、清单里多一堆「没动它」，而且拷了一半的活库以后盖回去能不能读是它自己的事），排除是为了省这份力气、也避免那份不确定性。**排除规则是后加的**，所以 `SnapshotMirror.mirror` 会把「目录 ∪ 清单 ∪ 块映射」拼出来的列表再按 `isExcluded` 滤一遍：老槽位的清单里记着的这类路径不回拷、也不被当成「快照里没有的多余文件」删掉。代价是回溯不会把 LOD 拨回存档点那一刻——回溯之后远处那段 LOD 在区块重新加载前是建点之后的样子。
 - **命令面**：`/rewind` 是模组主要功能的命令入口，完整清单在 `RewindCommands` 的类注释里——`status`（时间线的头 + 每个槽位一行 + 上一次操作）、`ui`（= F9）、`snapshot [槽位]`（= F7，不给槽位就是 `quick`）、`restore [槽位]`（= F8）、`info <槽位>`（元数据 + 背包快照几格）、`delete <槽位>`、`rename <槽位> <名字>`、`autosave on|off`（就是界面上「自动存档」卡那个开关，同一个 COMMON 配置项）。槽位参数是 Brigadier 的 `word` + `SharedSuggestionProvider.suggest(RewindApi.slots(), ...)`，所以 `<tab>` 补全出来的就是界面上那套槽位（`auto` / `quick` / `s1`..`sN`）。
   > **两边都注册**：入口在 mod 构造阶段订阅 `RegisterCommandsEvent`（Fabric 是 `RewindFabric.onInitialize` 里的 `CommandRegistrationCallback`），所以单人的集成服务器与专用服务器上都有这条命令。`requires` = 「加载期的 null source」或「单人且没开局域网」或「permission 2」——**多人服务器上只有 OP 能用**（这也正是多人模式下的回溯方式：GUI 已禁用）。命令类**不引用任何客户端类**：打开时间树、打印客户端状态机这两件事由 `RewindClient.setup()` 用 `RewindCommands.installClientActions(...)` 注入，专用服务器上它们是 null，`ui` 只会回一句 `rewind.cmd.client_only`。
-  > **建点 / 回溯在有客户端时走 F7 / F8 那条过渡路**（`requestCheckpoint` / `requestRollback`），**专用服务器上没有客户端桥**（返回 false）就退到服务端线程上的同步入口（`RewindApi.createCheckpoint` / `rollbackInPlace`）——命令本身就在服务端线程上执行，线程要求天然满足，代价是执行期间服务器会卡一下。这两条还会在调用 API 之前自己再走一遍「能不能动手」的判定（`busyBlocker` / `worldActionBlocker` + `hasCheckpoint` + 冷却）：热键那条路被挡下来时只写日志，命令得当场把原因说给玩家听——**改判定逻辑时两边一起改**。注意 `worldActionBlocker` 里的「局域网已开放」只对**单人**生效：专用服务器的 `isPublished()` 恒为 true，不能拿它挡（dedicated server 上实测踩过这个坑）。四个 target 的命令本体逐字节相同，差别只有注册入口与 26.1 的权限判定（`Permissions.COMMANDS_GAMEMASTER`）。
+  > **建点 / 回溯在有客户端时走 F7 / F8 那条过渡路**（`requestCheckpoint` / `requestRollback`），**专用服务器上没有客户端桥**（返回 false）就退到服务端线程上的同步入口（`RewindApi.createCheckpoint` / `rollbackInPlace`）——命令本身就在服务端线程上执行，线程要求天然满足，代价是执行期间服务器会卡一下。这两条还会在调用 API 之前自己再走一遍「能不能动手」的判定（`busyBlocker` / `worldActionBlocker` + `hasCheckpoint` + 冷却）：热键那条路被挡下来时只写日志，命令得当场把原因说给玩家听——**改判定逻辑时两边一起改**。注意 `worldActionBlocker` 里的「局域网已开放」只对**单人**生效：专用服务器的 `isPublished()` 恒为 true，不能拿它挡（dedicated server 上实测踩过这个坑）。六个 target 的命令本体逐字节相同，差别只有注册入口与 26.1 的权限判定（`Permissions.COMMANDS_GAMEMASTER`）。
   > 两条必须记住的约定：**槽位目录里没有这些 `.mca` 的实体文件**（建点时会顺手删掉老格式留下的整文件），所以回溯方向的文件列表要把「目录 ∪ 清单 ∪ 块映射」并起来（`SnapshotMirror.sourceFiles`）——少一个就会漏还原，甚至反过来把世界里的 `.mca` 当多余文件删掉；`InPlaceRollback` 拿快照 `.mca` 头部做逐区块比对时要走 `RegionHeader.fromSnapshot` 从块存储拼出前 8 KiB（读活动存档那份走 `RegionHeader.read`）。删槽位时 `SnapshotBlockIo.collectGarbage` 按「所有槽位映射的并集」做标记-清除。老格式的槽位（槽位里是整文件、没有映射）照旧能还原——映射里有没有这个文件就是判断依据；`SnapshotMirrorTest` / `SnapshotBlockStoreTest` 盯着块编码、部分扇区复用、老格式兼容和「块缺失时宁可直接失败也不写半个文件」
 `CheckpointController` 只保留「怎么让玩家看到这件事发生」：过渡包络、界面收放、原地回滚失败后退回「关世界 → 覆盖 → 重开」、以及把结果记下来给命令和自测看。状态机因此只剩 `WORKING`（服务端线程上跑 API 同步入口，客户端轮询）+ 回退路径的三个阶段 + `REVEALING`。
 
@@ -223,7 +231,7 @@ F7 / F8 与时间树都是**世界里**的动作；世界一旦坏到打不开�
   一概不碰；唯一的例外是离线读档前那一次确认（`rewind.ui.modal.restore`）——它会把磁盘上的世界文件
   覆盖掉，所以复用页面自带的那套确认弹窗先问一句。
 - **它绕不过读档冷却**：`restoreFiles` 照样会因 `rollback.cooldownSeconds` 被拒，日志里能看到原因。
-- **第一排三颗等宽**——四个版本的**存档行里都没有按钮**，per-world 的操作全在底部按钮区，所以这颗也放第一排：
+- **第一排三颗等宽**——六个 target 的**存档行里都没有按钮**，per-world 的操作全在底部按钮区，所以这颗也放第一排：
   原版第一排 `[进入世界 150][创建新的世界 150]`（整排 308）被收成三颗等宽 100、间隔 4 像素
   （3 * 100 + 2 * 4 = 308），中间那颗就是「读取存档点」；三颗等宽之后第一排的竖缝**不会**与第二排那四颗
   （各 72）对齐，这是等宽的必然结果。1.20.1 / 1.21.1 用两个 `@Redirect` 改写 `ordinal = 0/1` 那两次
@@ -233,7 +241,7 @@ F7 / F8 与时间树都是**世界里**的动作；世界一旦坏到打不开�
   `init` 的尾巴上按同一套坐标手工摆（`playWorldButton` 用 `@Shadow` 拿、创建新的世界是个局部变量、
   在它进网格那次 `addChild` 上 `@Redirect` 截下来）。
 
-**mixin 侧两条硬性经验（四个 target 通用）**：
+**mixin 侧两条硬性经验（所有 target 通用）**：
 
 1. **内层 mixin 要 `extends Screen`**，否则 `addRenderableWidget` / `repositionElements` 这些 protected
    方法跨包调不到（mixin 类与 `Screen` 不同包、也不是它的子类）。构造器只为喂 javac，Mixin 不合并它。
@@ -346,7 +354,7 @@ F9 / `/rewind ui` 打开 `RewindTreeScreen`——「时间树」，一页管所�
 - **平时世界是暂停的，写盘期间放行**：`isPauseScreen()` 返回 `savingSlot == null`——管理界面开着时世界停住（不然站在危险的地方翻存档点会挨打），但后台写盘必须让服务端线程能跑，所以那几百毫秒放行。删除 / 改名仍然走客户端线程的文件操作（不占服务端线程），并且在写盘期间会被 `usable()` 挡掉：那会儿世界是活的，自动建点随时可能落盘，客户端线程再去改同一张索引就会打架。**别把它们改成 `server.execute(...)`**，没必要，也会让删除/改名变成异步的。
 - **卡片封面是建点时抓的截图**：`CheckpointWriter.create` 往 `CoverRequest` 里留一条待办（中立的小盒子，服务端线程写、客户端渲染线程取，两边不用互相引用），客户端 `CoverCapture` 在下一帧的 `RenderFrameEvent` 上兑现——那会儿服务端正忙在落盘和拷贝上、世界不 tick，所以抓到的就是存档点那一刻的画面。抓帧那一帧把 `options.hideGui` 和当前界面都临时摘掉，封面里因此既没有 HUD / 手持物、也没有界面。抓帧注册在 `EventPriority.HIGHEST`，必须抢在过渡后处理之前读那一帧，否则封面会带上存档过渡的饱和度。
 - **封面存在 `<gameDir>/apricity/rewind/covers/<存档目录名>/<槽位>-<毫秒>.png`**，页面用 `/rewind/covers/...`（AUI 的根相对路径，`/` 开头 = 相对 `apricity` 根）引用它。放这儿而不是存档目录里，是因为 AUI 只认资源包和 `<gameDir>/apricity/`，任意绝对路径解析不了。文件名带建点时刻（就是索引里的 `savedAtMillis`），是因为 **AUI 按路径缓存贴图、同一个路径换内容不会重读**——每建一次点就换一个名字，页面按索引里的时刻拼出当前那一个；写新的时把旧的一起删掉，删槽位时也删（封面不在存档目录里，`SnapshotStore` 带不上它，是界面上那条删除路径单独清的）。没有截图时退回纯色块（`COVER_COLORS`），封面框也不盖黑色渐变阴影（原来那个 `.cover-shade` 已经删掉）。
-- **封面用 `<img class="cover-shot">`**（`object-fit:cover`，比封面框大的部分由封面框的 `overflow:hidden` 裁掉）。页面这一侧的接线是好的：自测会断言 `<img>` 在、`src` 指向当前那一版封面、`ImageDrawer.isTextureReady` 返回 true。（这个 bug 只在 AUI ≤ 1.2.5.1 上出现，1.2.5.2 起正常，四个 target 现在都用 1.2.7——见「曾经的问题：AUI 屏幕文档里画不出图片」。）
+- **封面用 `<img class="cover-shot">`**（`object-fit:cover`，比封面框大的部分由封面框的 `overflow:hidden` 裁掉）。页面这一侧的接线是好的：自测会断言 `<img>` 在、`src` 指向当前那一版封面、`ImageDrawer.isTextureReady` 返回 true。（这个 bug 只在 AUI ≤ 1.2.5.1 上出现，1.2.5.2 起正常，六个 target 现在都用 1.2.7——见「曾经的问题：AUI 屏幕文档里画不出图片」。）
 - **背包快照**：建点时 `WorldFlush` 把非空栏位抓成「栏位序号 → 原版 SNBT」（`ItemStack.saveOptional`），存到与槽位目录同级的 `<槽位>.inventory`（不参与镜像；`SnapshotInventory` 负责读写，一行一条、TAB 分隔）。详情面板把每格喂给 AUI 的 `<item>` 元素——它认 SNBT，数量也由它自己画，所以不要另外加数量角标。
 - **背包快照默认折叠，只显示一行快捷栏**（9 格）。「背包快照」四个字左边是折叠/展开箭头（`▶` / `▼`，点整行切换，`data-act="toggle-inventory"`，状态是 `RewindTreeScreen.inventoryExpanded`，每次开界面都是折叠的）。展开后是「背包三行 + 快捷栏一行」——**快捷栏按原版习惯放在第四行**，中间用 `.inv-gap`（12px）把快捷栏和背包槽位分开；护甲与副手有东西才在快捷栏下面再起一行。
 - **HUD 的「已游玩」**读的是集成服务端玩家的 `play_time` 统计（客户端的 `LocalPlayer` 身上没有这个统计）；界面开着时世界暂停，读一个 int 不会打架。
@@ -398,7 +406,7 @@ F9 / `/rewind ui` 打开 `RewindTreeScreen`——「时间树」，一页管所�
 
 ### 曾经的问题：AUI 屏幕文档里画不出图片（已修复）
 
-> 四个 target 现在统一用 AUI **1.2.7**（≥ 1.2.5.2），下面这段只是历史记录。
+> 六个 target 现在统一用 AUI **1.2.7**（≥ 1.2.5.2），下面这段只是历史记录。
 
 **已经随 AUI 1.2.5.2 消失，这里留个记录。** 在 AUI 1.2.5.1 上，时间树卡片与详情面板的封面（`<img class="cover-shot" src="/rewind/covers/...">`）抓图、存盘、页面接线都是好的，但画面上看不到、只剩纯色块：`<img>` 在 DOM 里且 `src` 正确，`Style.backgroundImage` 有值、`ImageDrawer.isTextureReady(...)` 返回 true（贴图确实解码并上传了），给显式宽高、关深度测试、确认 `commitDraws()` 都无效，而同一个屏幕里的形状、渐变、文字、AUI 的 `<item>` 都画得出来。当时的结论是「AUI 的 flat document 里贴图 blit 会丢，`<img>` / `background-image` / `<sprite>` / `border-image` 都走这条路」。
 

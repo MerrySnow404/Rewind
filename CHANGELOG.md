@@ -1,5 +1,13 @@
 # 更新日志
 
+## 未发布
+
+### 新增：Fabric 1.21.1 与 Fabric 26.1 target
+
+- 新增 `targets/fabric-1.21.1`（Fabric Loader 0.16.14 / Fabric API 0.116.15+1.21.1 / JDK 21）与 `targets/fabric-26.1`（Fabric Loader 0.19.5 / Fabric API 0.155.3+26.1.2 / JDK 25），功能与同 MC 版本的 NeoForge target 对齐：存档点、原地回滚、快速重启、时间树、`/rewind` 命令、自动存档点与封面。
+- 两个新 target 沿用 Fabric 侧既有做法：手写 properties 配置、Fabric API 事件配少量客户端 mixin、`fabric.mod.json` metadata；26.1 的 `KeyMapping.Category`、`Identifier`、`renderFrame`、`KeyboardHandler.keyPress` 等改名已消化。
+- 根聚合构建、CI 目标发现、README / `AGENT.md` / 维护文档的目标矩阵同步更新。
+
 ## 1.0.4
 
 ### 新增：多人模式禁用时间树，回溯交给 OP 命令

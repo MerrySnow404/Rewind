@@ -16,19 +16,22 @@
 | --- | --- | --- |
 | `forge-1.20.1` | JDK 21 | `targets\forge-1.20.1\.\gradlew.bat clean build` |
 | `fabric-1.20.1` | JDK 21 | `targets\fabric-1.20.1\.\gradlew.bat clean build` |
+| `fabric-1.21.1` | JDK 21 | `targets\fabric-1.21.1\.\gradlew.bat clean build` |
 | `neoforge-1.21.1` | JDK 21 | `targets\neoforge-1.21.1\.\gradlew.bat clean build` |
+| `fabric-26.1` | JDK 25 | `targets\fabric-26.1\.\gradlew.bat clean build` |
 | `neoforge-26.1` | JDK 25 | `targets\neoforge-26.1\.\gradlew.bat clean build` |
 
-根项目默认只同步 `common`。使用 JDK 21 时可选择性构建前三个 target：
+根项目默认只同步 `common`。使用 JDK 21 时可选择性构建前四个 target：
 
 ```powershell
 .\gradlew.bat '-Ptarget=forge-1.20.1' build
 .\gradlew.bat '-Ptarget=fabric-1.20.1' build
+.\gradlew.bat '-Ptarget=fabric-1.21.1' build
 .\gradlew.bat '-Ptarget=neoforge-1.21.1' build
 .\gradlew.bat -PallTargets=true build
 ```
 
-`neoforge-26.1` 因 JDK 25 要求独立构建。
+`fabric-26.1` 与 `neoforge-26.1` 因 JDK 25 要求独立构建。
 
 ## 结构
 
@@ -48,7 +51,9 @@
 ```text
 targets/forge-1.20.1/libs/
 targets/fabric-1.20.1/libs/
+targets/fabric-1.21.1/libs/
 targets/neoforge-1.21.1/libs/
+targets/fabric-26.1/libs/
 targets/neoforge-26.1/libs/
 ```
 

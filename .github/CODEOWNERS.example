@@ -3,7 +3,9 @@
 /common/ @core-maintainer
 /targets/forge-1.20.1/ @forge-1201-maintainer
 /targets/fabric-1.20.1/ @fabric-1201-maintainer
+/targets/fabric-1.21.1/ @fabric-1211-maintainer
 /targets/neoforge-1.21.1/ @neoforge-1211-maintainer
+/targets/fabric-26.1/ @fabric-261-maintainer
 /targets/neoforge-26.1/ @neoforge-261-maintainer
 /build.gradle @build-maintainer
 /settings.gradle @build-maintainer

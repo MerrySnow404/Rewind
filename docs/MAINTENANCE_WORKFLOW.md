@@ -16,7 +16,9 @@
 | `common/` | Core Maintainer | 共享业务逻辑、纯 Java 测试、稳定接口 | 至少一名受影响 target 维护者 |
 | `targets/forge-1.20.1/` | Forge 1.20.1 Maintainer | Forge 入口、事件、资源、Mixin、适配器 | Core Maintainer 仅在 common 合约变化时参与 |
 | `targets/fabric-1.20.1/` | Fabric 1.20.1 Maintainer | Fabric entrypoint、callback、资源、Mixin、适配器 | 同上 |
+| `targets/fabric-1.21.1/` | Fabric 1.21.1 Maintainer | Fabric entrypoint、callback、资源、Mixin、适配器 | 同上 |
 | `targets/neoforge-1.21.1/` | NeoForge 1.21.1 Maintainer | NeoForge 入口、事件、资源、Mixin、适配器 | 同上 |
+| `targets/fabric-26.1/` | Fabric 26.1 Maintainer | Java 25、26.1 API、Fabric entrypoint、资源、渲染和适配器 | 同上 |
 | `targets/neoforge-26.1/` | NeoForge 26.1 Maintainer | Java 25、26.1 API、资源、渲染和适配器 | 同上 |
 | 根 Gradle、CI、`docs/` | Build / Release Maintainer | 聚合入口、CI 矩阵、维护文档 | 受影响 target 维护者 |
 
@@ -71,7 +73,9 @@
 ```text
 target/forge-1.20.1/<topic>
 target/fabric-1.20.1/<topic>
+target/fabric-1.21.1/<topic>
 target/neoforge-1.21.1/<topic>
+target/fabric-26.1/<topic>
 target/neoforge-26.1/<topic>
 common/<topic>
 build/<topic>
@@ -83,7 +87,9 @@ docs/<topic>
 ```text
 forge-1.20.1: fix entity renderer registration
 fabric-1.20.1: add client packet adapter
+fabric-1.21.1: adapt checkpoint mixins
 neoforge-1.21.1: update data generation
+fabric-26.1: migrate render frame hooks
 neoforge-26.1: migrate item template handling
 common: expose render-plan hook
 build: update neoforge-26.1 wrapper
@@ -152,12 +158,14 @@ targets/<name>/.../client/
 | --- | --- | --- | --- |
 | Forge 1.20.1 | `targets/forge-1.20.1` | JDK 21 | `./gradlew clean build` |
 | Fabric 1.20.1 | `targets/fabric-1.20.1` | JDK 21 | `./gradlew clean build` |
+| Fabric 1.21.1 | `targets/fabric-1.21.1` | JDK 21 | `./gradlew clean build` |
 | NeoForge 1.21.1 | `targets/neoforge-1.21.1` | JDK 21 | `./gradlew clean build` |
+| Fabric 26.1 | `targets/fabric-26.1` | JDK 25 | `./gradlew clean build` |
 | NeoForge 26.1 | `targets/neoforge-26.1` | JDK 25 | `./gradlew clean build` |
 
 补充规则：
 
-- 根 `-PallTargets=true build` 仅覆盖可由 JDK 21 同时构建的三个 target。它不是 NeoForge 26.1 的验证替代品。
+- 根 `-PallTargets=true build` 仅覆盖可由 JDK 21 同时构建的四个 target。它不是两个 26.1 target 的验证替代品。
 - 任何改动 `common/` 的 PR，至少触发所有当前支持 target 的 build job。
 - 任何改动一个 target 的资源、Mixin 或 metadata 的 PR，至少检查最终 jar 是否包含对应 metadata、配置文件和 common class。
 - 构建成功不代替运行验证。涉及事件、网络、Mixin、注册、渲染或数据包时，应在 PR 中记录 client、dedicated server、reload 或 data generation 的实际验证范围。
@@ -176,8 +184,8 @@ scripts/build-target.ps1
 执行顺序：
 
 1. `common-tests` 使用 JDK 21 执行 `common` 的 `clean test`。
-2. 四个 target job 并行执行各自 wrapper 的 `clean build`。`build` 包含 target 和 common 的测试任务。
-3. 每个 target 使用对应 JDK：Forge/Fabric 1.20.1、NeoForge 1.21.1 使用 JDK 21；NeoForge 26.1 使用 JDK 25。
+2. 六个 target job 并行执行各自 wrapper 的 `clean build`。`build` 包含 target 和 common 的测试任务。
+3. 每个 target 使用对应 JDK：Forge/Fabric 1.20.1、Fabric/NeoForge 1.21.1 使用 JDK 21；Fabric 26.1、NeoForge 26.1 使用 JDK 25。
 4. 成功或失败时上传已生成的 `build/libs/*.jar`，便于检查发布物。
 
 `scripts/build-target.ps1` 对 target build 最多重试三次，专门处理首次解析 mappings、NeoForm 或 Maven 时的短暂网络失败。编译错误、测试错误和持续依赖错误仍会使 job 失败。
@@ -188,7 +196,9 @@ scripts/build-target.ps1
 Common Unit Tests
 forge-1.20.1 (JDK 21)
 fabric-1.20.1 (JDK 21)
+fabric-1.21.1 (JDK 21)
 neoforge-1.21.1 (JDK 21)
+fabric-26.1 (JDK 25)
 neoforge-26.1 (JDK 25)
 ```
 
@@ -221,7 +231,9 @@ target-only 的快速验证工作流可以后续按同一模式增加，但不�
 ```text
 Rewind-forge-1.20.1-<version>.jar
 Rewind-fabric-1.20.1-<version>.jar
+Rewind-fabric-1.21.1-<version>.jar
 Rewind-neoforge-1.21.1-<version>.jar
+Rewind-fabric-26.1-<version>.jar
 Rewind-neoforge-26.1-<version>.jar
 ```
 
