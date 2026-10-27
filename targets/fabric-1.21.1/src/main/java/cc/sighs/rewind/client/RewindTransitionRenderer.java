@@ -14,6 +14,8 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceProvider;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -161,8 +163,10 @@ public final class RewindTransitionRenderer {
                 // 1.21.1 原版的 ShaderInstance 构造函数收 String（NeoForge 才多一个 ResourceLocation 重载），
                 // 它自己 ResourceLocation.parse 这个字符串，所以这里带命名空间写全——json 里的 vertex /
                 // fragment 也必须是带命名空间的 rewind:rewind_transition。
-                shader = new ShaderInstance(minecraft.getResourceManager(),
-                        "rewind:rewind_transition",
+                ResourceProvider provider = location -> minecraft.getResourceManager()
+                        .getResource(ResourceLocation.fromNamespaceAndPath(Rewind.MOD_ID, location.getPath()));
+                shader = new ShaderInstance(provider,
+                        "rewind_transition",
                         DefaultVertexFormat.BLIT_SCREEN);
             } catch (Throwable e) {
                 shaderFailed = true;
