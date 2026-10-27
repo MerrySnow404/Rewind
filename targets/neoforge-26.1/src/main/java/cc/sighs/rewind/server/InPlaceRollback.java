@@ -18,6 +18,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import cc.sighs.mixin.RollbackAccessMixins.AttachmentHolderAccess;
 import cc.sighs.mixin.RollbackAccessMixins.ChunkMapAccess;
+import cc.sighs.rewind.network.ClearVisualNetwork;
 import cc.sighs.mixin.RollbackAccessMixins.DistanceManagerAccess;
 import cc.sighs.mixin.RollbackAccessMixins.EntitySectionManagerAccess;
 import cc.sighs.mixin.RollbackAccessMixins.EntityStorageAccess;
@@ -959,6 +960,7 @@ public final class InPlaceRollback {
         }
         player.onUpdateAbilities();
         player.connection.send(new ClientboundSetExperiencePacket(player.experienceProgress, player.totalExperience, player.experienceLevel));
+        ClearVisualNetwork.send(player);
         // 血量 / 饥饿 / 经验值靠 ServerPlayer.tick() 里「和上次发的比」的逻辑重发，这里把基线清掉
         player.resetSentInfo();
         // 配方书默认不管（RewindServerConfig.syncRecipeBook()，默认 false）：重发整份配方书在大整合包里

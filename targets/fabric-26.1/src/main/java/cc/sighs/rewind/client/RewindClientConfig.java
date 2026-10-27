@@ -46,6 +46,7 @@ public final class RewindClientConfig {
     /** 排序方式存的是模板 {@code #sort} 的 option value（小写），与界面里 {@code SortMode.of} 认的形式一致。 */
     public static final String DEFAULT_SORT_MODE = "index";
     public static final String DEFAULT_TREE_DIRECTION = "down";
+    public static final boolean DEFAULT_CLEAR_VISUAL = false;
 
     /** 时长类配置项的合法范围（秒），与主版本 TOML 里的 defineInRange 一致。 */
     private static final double MIN_SECONDS = 0.01D;
@@ -62,6 +63,7 @@ public final class RewindClientConfig {
     private static final String KEY_TREE_LAYOUT = "gui.treeLayout";
     private static final String KEY_SORT_MODE = "gui.sortMode";
     private static final String KEY_TREE_DIRECTION = "gui.treeDirection";
+    private static final String KEY_CLEAR_VISUAL = "clearVisual";
 
     /** 写进文件开头的说明；一行一条，写的时候前面各加一个 {@code # }。 */
     private static final List<String> HEADER_LINES = Arrays.asList(
@@ -101,6 +103,7 @@ public final class RewindClientConfig {
     private static volatile boolean storedTreeLayout = DEFAULT_TREE_LAYOUT;
     private static volatile String storedSortMode = DEFAULT_SORT_MODE;
     private static volatile String storedTreeDirection = DEFAULT_TREE_DIRECTION;
+    private static volatile boolean storedClearVisual = DEFAULT_CLEAR_VISUAL;
 
     private static float fadeInSeconds = DEFAULT_FADE_IN_SECONDS;
     private static float saturationFadeOutSeconds = DEFAULT_SATURATION_FADE_OUT_SECONDS;
@@ -112,6 +115,7 @@ public final class RewindClientConfig {
     private static boolean treeLayoutValue = DEFAULT_TREE_LAYOUT;
     private static String sortModeValue = DEFAULT_SORT_MODE;
     private static String treeDirectionValue = DEFAULT_TREE_DIRECTION;
+    private static boolean clearVisualValue = DEFAULT_CLEAR_VISUAL;
 
     private RewindClientConfig() {
     }
@@ -134,6 +138,7 @@ public final class RewindClientConfig {
         boolean treeLayout = DEFAULT_TREE_LAYOUT;
         String sortMode = DEFAULT_SORT_MODE;
         String treeDirection = DEFAULT_TREE_DIRECTION;
+        boolean clearVisual = DEFAULT_CLEAR_VISUAL;
         try {
             if (file != null && Files.isRegularFile(file)) {
                 Properties properties = new Properties();
@@ -155,6 +160,7 @@ public final class RewindClientConfig {
                 treeLayout = parseBoolean(properties.getProperty(KEY_TREE_LAYOUT), DEFAULT_TREE_LAYOUT);
                 sortMode = parseString(properties.getProperty(KEY_SORT_MODE), DEFAULT_SORT_MODE);
                 treeDirection = parseString(properties.getProperty(KEY_TREE_DIRECTION), DEFAULT_TREE_DIRECTION);
+                clearVisual = parseBoolean(properties.getProperty(KEY_CLEAR_VISUAL), DEFAULT_CLEAR_VISUAL);
             }
         } catch (Throwable t) {
             Rewind.LOGGER.error("Rewind: failed to read {}; falling back to the defaults", file, t);
@@ -168,6 +174,7 @@ public final class RewindClientConfig {
             treeLayout = DEFAULT_TREE_LAYOUT;
             sortMode = DEFAULT_SORT_MODE;
             treeDirection = DEFAULT_TREE_DIRECTION;
+            clearVisual = DEFAULT_CLEAR_VISUAL;
         }
 
         storedFadeInSeconds = (float) clamp(fadeIn, MIN_SECONDS, MAX_SECONDS);
@@ -180,6 +187,7 @@ public final class RewindClientConfig {
         storedTreeLayout = treeLayout;
         storedSortMode = sortMode;
         storedTreeDirection = treeDirection;
+        storedClearVisual = clearVisual;
         apply();
         // 无论刚才是读出来的还是兜底出来的，都写回去一次：文件缺失时补上，值被夹过时纠正
         write();
@@ -196,6 +204,7 @@ public final class RewindClientConfig {
         treeLayoutValue = storedTreeLayout;
         sortModeValue = storedSortMode;
         treeDirectionValue = storedTreeDirection;
+        clearVisualValue = storedClearVisual;
         Rewind.LOGGER.info(
                 "Rewind: transition config fadeIn={}s saturationFadeOut={}s saturationBoost={} blurFadeOut={}s deathFadeOut={}s blurRadius={} restoreSettleTicks={}, gui treeLayout={} sortMode={} treeDirection={}",
                 fadeInSeconds, saturationFadeOutSeconds, saturationBoostValue, blurFadeOutSeconds, deathFadeOutSeconds,
@@ -287,6 +296,10 @@ public final class RewindClientConfig {
     /** 上次用的时间轴方向（{@code down} / {@code right} / {@code up} / {@code left}）。 */
     public static String treeDirection() {
         return treeDirectionValue;
+    }
+
+    public static boolean clearVisual() {
+        return clearVisualValue;
     }
 
     /** 切换布局之后调用：记住并立刻落盘。 */
@@ -389,6 +402,7 @@ public final class RewindClientConfig {
         lines.add(KEY_TREE_LAYOUT + "=" + storedTreeLayout);
         lines.add(KEY_SORT_MODE + "=" + storedSortMode);
         lines.add(KEY_TREE_DIRECTION + "=" + storedTreeDirection);
+        lines.add(KEY_CLEAR_VISUAL + "=" + storedClearVisual);
         try {
             Path parent = file.getParent();
             if (parent != null) {

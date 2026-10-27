@@ -30,6 +30,8 @@
     "AutoCheckpointMixins$MinecraftServerAutosave"
   ],
   "client": [
+    "ClientVisualMixins$ParticleEngineAccess",
+    "ClientVisualMixins$ParticleEngineInvoker",
     "KeyBindsListMixins$OnlyRewindKeys",
     "KeyBindsListMixins$KeyBindsScreenAccess",
     "WorldRepairMixins$SelectWorldRepair"

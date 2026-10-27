@@ -1,6 +1,7 @@
 package cc.sighs;
 
 import cc.sighs.rewind.client.RewindClient;
+import cc.sighs.rewind.network.ClearVisualNetwork;
 import net.fabricmc.api.ClientModInitializer;
 
 /**
@@ -22,6 +23,7 @@ import net.fabricmc.api.ClientModInitializer;
 public final class RewindFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        ClearVisualNetwork.registerClient();
         RewindClient.setup();
     }
 }

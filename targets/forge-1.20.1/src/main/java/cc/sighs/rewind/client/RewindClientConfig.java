@@ -49,6 +49,7 @@ public final class RewindClientConfig {
     /** 排序方式存的是模板 {@code #sort} 的 option value（小写），与界面里 {@code SortMode.of} 认的形式一致。 */
     public static final String DEFAULT_SORT_MODE = "index";
     public static final String DEFAULT_TREE_DIRECTION = "down";
+    public static final boolean DEFAULT_CLEAR_VISUAL = false;
 
     private static ForgeConfigSpec.DoubleValue fadeIn;
     private static ForgeConfigSpec.DoubleValue saturationFadeOut;
@@ -60,6 +61,7 @@ public final class RewindClientConfig {
     private static ForgeConfigSpec.BooleanValue treeLayout;
     private static ForgeConfigSpec.ConfigValue<String> sortMode;
     private static ForgeConfigSpec.ConfigValue<String> treeDirection;
+    private static ForgeConfigSpec.BooleanValue clearVisual;
     private static ForgeConfigSpec spec;
     /** 保存下来的配置对象：界面上拖完滚动条 / 切完布局要立刻落盘。 */
     private static volatile ModConfig modConfig;
@@ -74,6 +76,7 @@ public final class RewindClientConfig {
     private static boolean treeLayoutValue = DEFAULT_TREE_LAYOUT;
     private static String sortModeValue = DEFAULT_SORT_MODE;
     private static String treeDirectionValue = DEFAULT_TREE_DIRECTION;
+    private static boolean clearVisualValue = false;
 
     private RewindClientConfig() {
     }
@@ -140,6 +143,10 @@ public final class RewindClientConfig {
                 .define("treeDirection", DEFAULT_TREE_DIRECTION);
         builder.pop();
 
+        clearVisual = builder
+                .comment("是否在回溯后清理客户端视觉状态。", "Clear client visual state after rollback.")
+                .define("clearVisual", false);
+
         spec = builder.build();
         // Forge 1.20.1 的 ModContainer 上没有 registerConfig，只能用 ModLoadingContext 的当前容器
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, spec);
@@ -176,6 +183,7 @@ public final class RewindClientConfig {
         treeLayoutValue = readBool(treeLayout, DEFAULT_TREE_LAYOUT);
         sortModeValue = readString(sortMode, DEFAULT_SORT_MODE);
         treeDirectionValue = readString(treeDirection, DEFAULT_TREE_DIRECTION);
+        clearVisualValue = readBool(clearVisual, false);
         Rewind.LOGGER.info(
                 "Rewind: transition config fadeIn={}s saturationFadeOut={}s saturationBoost={} blurFadeOut={}s deathFadeOut={}s blurRadius={} restoreSettleTicks={}, gui treeLayout={} sortMode={} treeDirection={}",
                 fadeInSeconds, saturationFadeOutSeconds, saturationBoostValue, blurFadeOutSeconds,
@@ -259,6 +267,10 @@ public final class RewindClientConfig {
     /** 上次用的时间轴方向（{@code down} / {@code right} / {@code up} / {@code left}）。 */
     public static String treeDirection() {
         return treeDirectionValue;
+    }
+
+    public static boolean clearVisual() {
+        return clearVisualValue;
     }
 
     /** 切换布局之后调用：记住并立刻落盘。 */

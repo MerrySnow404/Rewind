@@ -2,6 +2,7 @@ package cc.sighs;
 
 import cc.sighs.rewind.client.RewindCommands;
 import cc.sighs.rewind.common.spi.RewindPlatforms;
+import cc.sighs.rewind.network.ClearVisualNetwork;
 import cc.sighs.rewind.server.FabricRewindPlatform;
 import cc.sighs.rewind.server.RewindServerConfig;
 import net.fabricmc.api.ModInitializer;
@@ -24,6 +25,7 @@ public final class RewindFabric implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        ClearVisualNetwork.registerServer();
         // 必须在任何 RewindApi 调用之前装好
         RewindPlatforms.install(new FabricRewindPlatform());
         // 服务端行为的配置两边都要有，所以放在主入口而不是客户端入口里

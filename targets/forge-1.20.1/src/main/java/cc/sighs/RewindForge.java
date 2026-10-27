@@ -3,6 +3,7 @@ package cc.sighs;
 import cc.sighs.rewind.client.RewindClient;
 import cc.sighs.rewind.client.RewindCommands;
 import cc.sighs.rewind.common.spi.RewindPlatforms;
+import cc.sighs.rewind.network.ClearVisualNetwork;
 import cc.sighs.rewind.server.ForgeRewindPlatform;
 import cc.sighs.rewind.server.RewindServerConfig;
 import net.minecraftforge.api.distmarker.Dist;
@@ -45,6 +46,7 @@ public final class RewindForge {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         // common 侧所有需要碰 Minecraft 的能力都通过这个平台实现接入；必须在任何 RewindApi 调用之前装好。
         RewindPlatforms.install(new ForgeRewindPlatform());
+        ClearVisualNetwork.register();
         // 服务端行为的配置两边都要有（COMMON）
         RewindServerConfig.register(modBus);
         // 命令两边都要注册（单人走集成服务器、多人走专用服务器；多人里只有 OP 能触发）

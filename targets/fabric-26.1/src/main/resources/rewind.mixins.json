@@ -28,6 +28,8 @@
     "AutoCheckpointMixins$MinecraftServerAutosave"
   ],
   "client": [
+    "ClientVisualMixins$ParticleEngineAccess",
+    "ClientVisualMixins$ParticleEngineInvoker",
     "ClientFrameMixins",
     "ClientInputMixins",
     "ClientScreenMixins",

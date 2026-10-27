@@ -5,6 +5,8 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "rewind.refmap.json",
   "client": [
+    "ClientVisualMixins$ParticleEngineAccess",
+    "ClientVisualMixins$ParticleEngineInvoker",
     "KeyBindsListMixins$OnlyRewindKeys",
     "KeyBindsListMixins$KeyBindsScreenAccess",
     "WorldRepairMixins$WorldListEntryAccess",
